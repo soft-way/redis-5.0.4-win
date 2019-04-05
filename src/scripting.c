@@ -1652,6 +1652,7 @@ void ldbSendLogs(void) {
  * The caller should call ldbEndSession() only if ldbStartSession()
  * returned 1. */
 int ldbStartSession(client *c) {
+#ifndef _WIN32
     ldb.forked = (c->flags & CLIENT_LUA_DEBUG_SYNC) == 0;
     if (ldb.forked) {
         pid_t cp = fork();
@@ -1700,6 +1701,7 @@ int ldbStartSession(client *c) {
     sdssetlen(srcstring,srclen);
     ldb.src = sdssplitlen(srcstring,sdslen(srcstring),"\n",1,&ldb.lines);
     sdsfree(srcstring);
+#endif
     return 1;
 }
 
@@ -1761,7 +1763,11 @@ void ldbKillForkedSessions(void) {
     while((ln = listNext(&li))) {
         pid_t pid = (unsigned long) ln->value;
         serverLog(LL_WARNING,"Killing debugging session %ld",(long)pid);
+#ifdef _WIN32
+        TerminateProcess(pid, 1);
+#else 
         kill(pid,SIGKILL);
+#endif
     }
     listRelease(ldb.children);
     ldb.children = listCreate();

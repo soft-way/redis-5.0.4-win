@@ -29,12 +29,22 @@
  */
 
 
+#ifdef _WIN32
+#include "Win32_Interop/Win32_Portability.h"
+#include "Win32_Interop/win32_types.h"
+#include "Win32_Interop/Win32_Time.h"
+#include "Win32_Interop/Win32_Error.h"
+#endif
+
 #include "server.h"
 
+#ifndef _WIN32
 #include <sys/time.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <sys/socket.h>
+#else
+#endif
+#include <fcntl.h>
 #include <sys/stat.h>
 
 void replicationDiscardCachedMaster(void);
@@ -977,7 +987,11 @@ void updateSlavesWaitingBgsave(int bgsaveerr, int type) {
                     serverLog(LL_WARNING,"SYNC failed. BGSAVE child returned an error");
                     continue;
                 }
-                if ((slave->repldbfd = open(server.rdb_filename,O_RDONLY)) == -1 ||
+#ifdef _WIN32
+                if ((slave->repldbfd = fopen(server.rdb_filename,O_RDONLY)) == -1 ||
+#else
+                if ((slave->repldbfd = open(server.rdb_filename, O_RDONLY)) == -1 ||
+#endif
                     redis_fstat(slave->repldbfd,&buf) == -1) {
                     freeClient(slave);
                     serverLog(LL_WARNING,"SYNC failed. Can't open/stat DB after BGSAVE: %s", strerror(errno));
@@ -1253,7 +1267,11 @@ void readSyncBulkPayload(aeEventLoop *el, int fd, void *privdata, int mask) {
                 "Killing process %ld and removing its temp file to avoid "
                 "any race",
                     (long) server.rdb_child_pid);
+#ifdef _WIN32
+            TerminateProcess(server.rdb_child_pid, 1);
+#else 
             kill(server.rdb_child_pid,SIGUSR1);
+#endif
             rdbRemoveTempFile(server.rdb_child_pid);
         }
 
@@ -1828,8 +1846,11 @@ void syncWithMaster(aeEventLoop *el, int fd, void *privdata, int mask) {
 
     /* Prepare a suitable temp file for bulk transfer */
     while(maxtries--) {
-        snprintf(tmpfile,256,
-            "temp-%d.%ld.rdb",(int)server.unixtime,(long int)getpid());
+#ifdef _WIN32
+        snprintf(tmpfile, 256, "temp-%d.0.rdb", (int)server.unixtime);
+#else
+        snprintf(tmpfile, 256, "temp-%d.%ld.rdb", (int)server.unixtime, (long int)getpid());
+#endif
         dfd = open(tmpfile,O_CREAT|O_WRONLY|O_EXCL,0644);
         if (dfd != -1) break;
         sleep(1);

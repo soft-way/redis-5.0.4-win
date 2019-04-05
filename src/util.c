@@ -27,6 +27,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef _WIN32
+#include "Win32_Interop/Win32_Portability.h"
+#include "Win32_Interop/win32fixes.h"
+#include "Win32_Interop/Win32_Time.h"
+#include <process.h>    // for getpid
+#include <direct.h>     // for getcwd
+#include <shlwapi.h>    // for PathIsRelative
+#endif
+
 #include "fmacros.h"
 #include <stdlib.h>
 #include <stdio.h>
@@ -34,8 +43,8 @@
 #include <ctype.h>
 #include <limits.h>
 #include <math.h>
-#include <unistd.h>
-#include <sys/time.h>
+POSIX_ONLY(#include <unistd.h>)
+POSIX_ONLY(#include <sys/time.h>)
 #include <float.h>
 #include <stdint.h>
 #include <errno.h>
@@ -677,6 +686,9 @@ sds getAbsolutePath(char *filename) {
 unsigned long getTimeZone(void) {
 #ifdef __linux__
     return timezone;
+#elif defined(_WIN32)
+    TIME_ZONE_INFORMATION tz;
+    return GetTimeZoneInformation(&tz);
 #else
     struct timeval tv;
     struct timezone tz;

@@ -46,6 +46,11 @@
 #include "strbuf.h"
 #include "fpconv.h"
 
+#ifdef _WIN32
+#define strncasecmp _strnicmp
+#define strcasecmp _stricmp
+#endif
+
 #include "../../../src/solarisfixes.h"
 
 #ifndef CJSON_MODNAME

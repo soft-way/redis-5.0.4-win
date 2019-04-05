@@ -27,6 +27,19 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef _WIN32
+#include "Win32_Interop/Win32_Portability.h"
+#include "Win32_Interop/win32fixes.h"
+#include "Win32_Interop/Win32_FDAPI.h"
+#include "Win32_Interop/Win32_ThreadControl.h"
+#include "Win32_Interop/Win32_QFork.h"
+#include "Win32_Interop/win32_types.h"
+#include "Win32_Interop/Win32_Time.h"
+#include "Win32_Interop/Win32_RedisLog.h"
+#include "Win32_Interop/Win32_Signal_Process.h"
+#include <process.h>
+#endif
+
 #include "server.h"
 #include "cluster.h"
 #include "slowlog.h"
@@ -36,25 +49,25 @@
 
 #include <time.h>
 #include <signal.h>
-#include <sys/wait.h>
+POSIX_ONLY(#include <sys/wait.h>)
 #include <errno.h>
 #include <assert.h>
 #include <ctype.h>
 #include <stdarg.h>
-#include <arpa/inet.h>
+POSIX_ONLY(#include <arpa/inet.h>)
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-#include <sys/uio.h>
-#include <sys/un.h>
+POSIX_ONLY(#include <sys/time.h>)
+POSIX_ONLY(#include <sys/resource.h>)
+POSIX_ONLY(#include <sys/uio.h>)
+POSIX_ONLY(#include <sys/un.h>)
 #include <limits.h>
 #include <float.h>
 #include <math.h>
-#include <sys/resource.h>
-#include <sys/utsname.h>
+POSIX_ONLY(#include <sys/resource.h>)
+POSIX_ONLY(#include <sys/utsname.h>)
 #include <locale.h>
-#include <sys/socket.h>
+POSIX_ONLY(#include <sys/socket.h>)
 
 /* Our shared "common" objects */
 
@@ -333,6 +346,7 @@ struct redisCommand redisCommandTable[] = {
  * function of Redis may be called from other threads. */
 void nolocks_localtime(struct tm *tmp, time_t t, time_t tz, int dst);
 
+#ifndef _WIN32 // redisLog code moved to Win32_Interop/Win32_RedisLog.c for sharing across binaries
 /* Low level logging. To use only for very big messages, otherwise
  * serverLog() is to prefer. */
 void serverLogRaw(int level, const char *msg) {
@@ -421,9 +435,13 @@ void serverLogFromHandler(int level, const char *msg) {
 err:
     if (!log_to_stdout) close(fd);
 }
+#endif
 
 /* Return the UNIX time in microseconds */
 long long ustime(void) {
+#ifdef _WIN32
+    return GetHighResRelativeTime(1000000);
+#else
     struct timeval tv;
     long long ust;
 
@@ -431,6 +449,7 @@ long long ustime(void) {
     ust = ((long long)tv.tv_sec)*1000000;
     ust += tv.tv_usec;
     return ust;
+#endif
 }
 
 /* Return the UNIX time in milliseconds */
@@ -1063,8 +1082,14 @@ void updateCachedTime(void) {
      * since we will never fork() while here, in the main thread. The logging
      * function will call a thread safe version of localtime that has no locks. */
     struct tm tm;
+#ifdef _WIN32
+    struct tm *ptm;
+    ptm = localtime(&server.unixtime);
+    server.daylight_active = ptm->tm_isdst;
+#else
     localtime_r(&server.unixtime,&tm);
     server.daylight_active = tm.tm_isdst;
+#endif
 }
 
 /* This is our timer interrupt, called server.hz times per second.
@@ -1220,6 +1245,27 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     if (server.rdb_child_pid != -1 || server.aof_child_pid != -1 ||
         ldbPendingChildren())
     {
+#ifdef _WIN32
+        if (GetForkOperationStatus() == osCOMPLETE || GetForkOperationStatus() == osFAILED) {
+            RequestSuspension();
+            if (SuspensionCompleted()) {
+                int exitCode;
+                int bySignal;
+                bySignal = (int)(GetForkOperationStatus() == osFAILED);
+                redisLog(REDIS_WARNING, (bySignal ? "fork operation failed" : "fork operation complete"));
+                EndForkOperation(&exitCode);
+                ResumeFromSuspension();
+                if (server.rdb_child_pid == -1) {
+                    backgroundSaveDoneHandler(exitCode, bySignal);
+                }
+                else if (server.aof_child_pid == -1) {
+                    backgroundRewriteDoneHandler(exitCode, bySignal);
+                }
+                updateDictResizePolicy();
+                closeChildInfoPipe();
+            }
+        }
+#else
         int statloc;
         pid_t pid;
 
@@ -1251,6 +1297,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
             updateDictResizePolicy();
             closeChildInfoPipe();
         }
+#endif
     } else {
         /* If there is not a background saving/rewrite in progress check if
          * we have to save/rewrite now. */
@@ -1559,7 +1606,7 @@ void initServerConfig(void) {
     server.logfile = zstrdup(CONFIG_DEFAULT_LOGFILE);
     server.syslog_enabled = CONFIG_DEFAULT_SYSLOG_ENABLED;
     server.syslog_ident = zstrdup(CONFIG_DEFAULT_SYSLOG_IDENT);
-    server.syslog_facility = LOG_LOCAL0;
+    POSIX_ONLY(server.syslog_facility = LOG_LOCAL0;)
     server.daemonize = CONFIG_DEFAULT_DAEMONIZE;
     server.supervised = 0;
     server.supervised_mode = SUPERVISED_NONE;
@@ -1777,14 +1824,22 @@ int restartServer(int flags, mstime_t delay) {
     for (j = 3; j < (int)server.maxclients + 1024; j++) {
         /* Test the descriptor validity before closing it, otherwise
          * Valgrind issues a warning on close(). */
+#ifdef _WIN32
+        close(j);
+#else
         if (fcntl(j,F_GETFD) != -1) close(j);
+#endif
     }
 
     /* Execute the server with the original command line. */
     if (delay) usleep(delay*1000);
     zfree(server.exec_argv[0]);
     server.exec_argv[0] = zstrdup(server.executable);
+#ifdef _WIN32
+    execve(server.executable, server.exec_argv, environ);
+#else
     execve(server.executable,server.exec_argv,environ);
+#endif
 
     /* If an error occurred here, there is nothing we can do, but exit. */
     _exit(1);
@@ -1801,6 +1856,7 @@ int restartServer(int flags, mstime_t delay) {
  * max number of clients, the function will do the reverse setting
  * server.maxclients to the value that we can actually handle. */
 void adjustOpenFilesLimit(void) {
+#ifndef _WIN32
     rlim_t maxfiles = server.maxclients+CONFIG_MIN_RESERVED_FDS;
     struct rlimit limit;
 
@@ -1873,6 +1929,7 @@ void adjustOpenFilesLimit(void) {
             }
         }
     }
+#endif
 }
 
 /* Check that server.tcp_backlog can be actually enforced in Linux according
@@ -1962,7 +2019,9 @@ int listenToPort(int port, int *fds, int *count) {
                 server.bindaddr[j] ? server.bindaddr[j] : "*",
                 port, server.neterr);
                 if (errno == ENOPROTOOPT     || errno == EPROTONOSUPPORT ||
+#ifndef _WIN32
                     errno == ESOCKTNOSUPPORT || errno == EPFNOSUPPORT ||
+#endif
                     errno == EAFNOSUPPORT    || errno == EADDRNOTAVAIL)
                     continue;
             return C_ERR;
@@ -2017,10 +2076,12 @@ void initServer(void) {
     signal(SIGPIPE, SIG_IGN);
     setupSignalHandlers();
 
+#ifndef _WIN32
     if (server.syslog_enabled) {
         openlog(server.syslog_ident, LOG_PID | LOG_NDELAY | LOG_NOWAIT,
             server.syslog_facility);
     }
+#endif
 
     server.hz = server.config_hz;
     server.pid = getpid();
@@ -2765,7 +2826,11 @@ int prepareForShutdown(int flags) {
        overwrite the synchronous saving did by SHUTDOWN. */
     if (server.rdb_child_pid != -1) {
         serverLog(LL_WARNING,"There is a child saving an .rdb. Killing it!");
+#ifdef _WIN32
+        TerminateProcess(server.rdb_child_pid, 1);
+#else
         kill(server.rdb_child_pid,SIGUSR1);
+#endif
         rdbRemoveTempFile(server.rdb_child_pid);
     }
 
@@ -2781,7 +2846,11 @@ int prepareForShutdown(int flags) {
             }
             serverLog(LL_WARNING,
                 "There is a child rewriting the AOF. Killing it!");
+#ifdef _WIN32
+            TerminateProcess(server.aof_child_pid, 1);
+#else
             kill(server.aof_child_pid,SIGUSR1);
+#endif
         }
         /* Append only file: flush buffers and fsync() the AOF at exit */
         serverLog(LL_NOTICE,"Calling fsync() on the AOF file.");
@@ -3101,8 +3170,8 @@ sds genRedisInfoString(char *section) {
 
     /* Server */
     if (allsections || defsections || !strcasecmp(section,"server")) {
-        static int call_uname = 1;
-        static struct utsname name;
+        POSIX_ONLY(static int call_uname = 1;)
+        POSIX_ONLY(static struct utsname name;)
         char *mode;
 
         if (server.cluster_enabled) mode = "cluster";
@@ -3111,11 +3180,12 @@ sds genRedisInfoString(char *section) {
 
         if (sections++) info = sdscat(info,"\r\n");
 
+        POSIX_ONLY(
         if (call_uname) {
             /* Uname can be slow and is always the same output. Cache it. */
             uname(&name);
             call_uname = 0;
-        }
+        })
 
         unsigned int lruclock;
         atomicGet(server.lruclock,lruclock);
@@ -3130,7 +3200,7 @@ sds genRedisInfoString(char *section) {
             "arch_bits:%d\r\n"
             "multiplexing_api:%s\r\n"
             "atomicvar_api:%s\r\n"
-            "gcc_version:%d.%d.%d\r\n"
+            POSIX_ONLY("gcc_version:%d.%d.%d\r\n")
             "process_id:%ld\r\n"
             "run_id:%s\r\n"
             "tcp_port:%d\r\n"
@@ -3146,7 +3216,7 @@ sds genRedisInfoString(char *section) {
             strtol(redisGitDirty(),NULL,10) > 0,
             (unsigned long long) redisBuildId(),
             mode,
-            name.sysname, name.release, name.machine,
+            POSIX_ONLY(name.sysname, name.release, name.machine,)
             server.arch_bits,
             aeGetApiName(),
             REDIS_ATOMIC_API,
@@ -3699,7 +3769,9 @@ void createPidFile(void) {
     }
 }
 
+
 void daemonize(void) {
+#ifndef _WIN32
     int fd;
 
     if (fork() != 0) exit(0); /* parent exits */
@@ -3714,6 +3786,7 @@ void daemonize(void) {
         dup2(fd, STDERR_FILENO);
         if (fd > STDERR_FILENO) close(fd);
     }
+#endif
 }
 
 void version(void) {
@@ -3909,6 +3982,7 @@ void redisSetProcTitle(char *title) {
  */
 
 int redisSupervisedUpstart(void) {
+#ifndef _WIN32
     const char *upstart_job = getenv("UPSTART_JOB");
 
     if (!upstart_job) {
@@ -3920,10 +3994,12 @@ int redisSupervisedUpstart(void) {
     serverLog(LL_NOTICE, "supervised by upstart, will stop to signal readiness");
     raise(SIGSTOP);
     unsetenv("UPSTART_JOB");
+#endif
     return 1;
 }
 
 int redisSupervisedSystemd(void) {
+#ifndef _WIN32
     const char *notify_socket = getenv("NOTIFY_SOCKET");
     int fd = 1;
     struct sockaddr_un su;
@@ -3978,6 +4054,7 @@ int redisSupervisedSystemd(void) {
     }
     close(fd);
     return 1;
+#endif
 }
 
 int redisIsSupervised(int mode) {

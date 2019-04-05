@@ -177,6 +177,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\deps\hiredis\read.c" />
     <ClCompile Include="..\..\src\adlist.c" />
     <ClCompile Include="..\..\src\ae.c" />
     <ClCompile Include="..\..\src\anet.c" />

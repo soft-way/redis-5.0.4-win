@@ -33,9 +33,11 @@
 #include "async.h"
 
 #include <ctype.h>
+#ifndef _WIN32
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
+#endif
 #include <fcntl.h>
 
 extern char **environ;
@@ -773,6 +775,7 @@ void sentinelRunPendingScripts(void) {
         sj->flags |= SENTINEL_SCRIPT_RUNNING;
         sj->start_time = mstime();
         sj->retry_num++;
+#ifndef _WIN32
         pid = fork();
 
         if (pid == -1) {
@@ -793,6 +796,7 @@ void sentinelRunPendingScripts(void) {
             sj->pid = pid;
             sentinelEvent(LL_DEBUG,"+script-child",NULL,"%ld",(long)pid);
         }
+#endif
     }
 }
 
@@ -815,6 +819,7 @@ mstime_t sentinelScriptRetryDelay(int retry_num) {
  * a signal, or returned exit code "1", it is scheduled to run again if
  * the max number of retries did not already elapsed. */
 void sentinelCollectTerminatedScripts(void) {
+#ifndef _WIN32
     int statloc;
     pid_t pid;
 
@@ -857,6 +862,7 @@ void sentinelCollectTerminatedScripts(void) {
             sentinel.running_scripts--;
         }
     }
+#endif
 }
 
 /* Kill scripts in timeout, they'll be collected by the
@@ -875,7 +881,11 @@ void sentinelKillTimedoutScripts(void) {
         {
             sentinelEvent(LL_WARNING,"-script-timeout",NULL,"%s %ld",
                 sj->argv[0], (long)sj->pid);
+#ifdef _WIN32
+            TerminateProcess(sj->pid, 1);
+#else 
             kill(sj->pid,SIGKILL);
+#endif
         }
     }
 }
@@ -1928,7 +1938,12 @@ void sentinelFlushConfig(void) {
     server.hz = saved_hz;
 
     if (rewrite_status == -1) goto werr;
-    if ((fd = open(server.configfile,O_RDONLY)) == -1) goto werr;
+#ifdef _WIN32
+    if ((fd = fopen(server.configfile, O_RDONLY)) == -1)
+#else
+    if ((fd = open(server.configfile, O_RDONLY)) == -1)
+#endif
+        goto werr;
     if (fsync(fd) == -1) goto werr;
     if (close(fd) == EOF) goto werr;
     return;
@@ -4014,7 +4029,11 @@ int sentinelStartFailoverIfNeeded(sentinelRedisInstance *master) {
                             master->failover_timeout*2) / 1000;
             char ctimebuf[26];
 
+#ifdef _WIN32
+            ctime_s(ctimebuf, sizeof(ctimebuf), &clock);
+#else
             ctime_r(&clock,ctimebuf);
+#endif
             ctimebuf[24] = '\0'; /* Remove newline. */
             master->failover_delay_logged = master->failover_start_time;
             serverLog(LL_WARNING,

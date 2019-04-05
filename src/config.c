@@ -28,6 +28,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef _WIN32
+#include "Win32_Interop/win32_types.h"
+#include "Win32_Interop/Win32_EventLog.h"
+#include <direct.h>
+#endif
+
 #include "server.h"
 #include "cluster.h"
 
@@ -55,6 +61,7 @@ configEnum maxmemory_policy_enum[] = {
     {NULL, 0}
 };
 
+#ifndef _WIN32
 configEnum syslog_facility_enum[] = {
     {"user",    LOG_USER},
     {"local0",  LOG_LOCAL0},
@@ -67,6 +74,7 @@ configEnum syslog_facility_enum[] = {
     {"local7",  LOG_LOCAL7},
     {NULL, 0}
 };
+#endif
 
 configEnum loglevel_enum[] = {
     {"debug", LL_DEBUG},
@@ -295,8 +303,10 @@ void loadServerConfigFromString(char *config) {
             if (server.syslog_ident) zfree(server.syslog_ident);
             server.syslog_ident = zstrdup(argv[1]);
         } else if (!strcasecmp(argv[0],"syslog-facility") && argc == 2) {
+#ifndef _WIN32            
             server.syslog_facility =
                 configEnumGetValue(syslog_facility_enum,argv[1]);
+#endif
             if (server.syslog_facility == INT_MIN) {
                 err = "Invalid log facility. Must be one of USER or between LOCAL0-LOCAL7";
                 goto loaderr;
@@ -1477,9 +1487,10 @@ void configGetCommand(client *c) {
             server.supervised_mode,supervised_mode_enum);
     config_get_enum_field("appendfsync",
             server.aof_fsync,aof_fsync_enum);
+#ifndef _WIN32
     config_get_enum_field("syslog-facility",
             server.syslog_facility,syslog_facility_enum);
-
+#endif
     /* Everything we can't handle with macros follows. */
 
     if (stringmatch(pattern,"appendonly",1)) {
@@ -1863,11 +1874,17 @@ void rewriteConfigEnumOption(struct rewriteConfigState *state, char *option, int
 /* Rewrite the syslog-facility option. */
 void rewriteConfigSyslogfacilityOption(struct rewriteConfigState *state) {
     int value = server.syslog_facility;
+#ifndef _WIN32
     int force = value != LOG_LOCAL0;
+#else
+    int force = 1;
+#endif
     const char *name = NULL, *option = "syslog-facility";
     sds line;
 
+#ifndef _WIN32
     name = configEnumGetNameOrUnknown(syslog_facility_enum,value);
+#endif
     line = sdscatprintf(sdsempty(),"%s %s",option,name);
     rewriteConfigRewriteLine(state,option,line,force);
 }

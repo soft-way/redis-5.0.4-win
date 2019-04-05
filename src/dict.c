@@ -33,6 +33,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef _WIN32
+#include "Win32_Interop/Win32_Time.h"
+#include "Win32_Interop/Win32_FDAPI.h"
+#define random rand
+#endif
+
 #include "fmacros.h"
 
 #include <stdio.h>
@@ -41,8 +47,9 @@
 #include <string.h>
 #include <stdarg.h>
 #include <limits.h>
+#ifndef _WIN32
 #include <sys/time.h>
-
+#endif
 #include "dict.h"
 #include "zmalloc.h"
 #ifndef DICT_BENCHMARK_MAIN

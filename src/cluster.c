@@ -33,12 +33,15 @@
 #include "endianconv.h"
 
 #include <sys/types.h>
+
+#ifndef _WIN32
 #include <sys/socket.h>
 #include <arpa/inet.h>
-#include <fcntl.h>
 #include <unistd.h>
-#include <sys/stat.h>
 #include <sys/file.h>
+#endif
+#include <fcntl.h>
+#include <sys/stat.h>
 #include <math.h>
 
 /* A global reference to myself is handy to make code more clear.
@@ -389,8 +392,21 @@ int clusterLockConfig(char *filename) {
         return C_ERR;
     }
 
+#ifndef _WIN32
     if (flock(fd,LOCK_EX|LOCK_NB) == -1) {
         if (errno == EWOULDBLOCK) {
+#else
+    HANDLE hFile = (HANDLE)FDAPI_get_osfhandle(fd);
+    OVERLAPPED ovlp;
+    DWORD size_lower, size_upper;
+    // start offset is 0, and also zero the remaining members of the struct
+    memset(&ovlp, 0, sizeof ovlp);
+    // get file size
+    size_lower = GetFileSize(hFile, &size_upper);
+    if (!LockFileEx(hFile, LOCKFILE_EXCLUSIVE_LOCK | LOCKFILE_FAIL_IMMEDIATELY, 0, size_lower, size_upper, &ovlp)) {
+        DWORD err = GetLastError();
+        if (err == ERROR_LOCK_VIOLATION) {
+#endif
             serverLog(LL_WARNING,
                  "Sorry, the cluster configuration file %s is already used "
                  "by a different Redis Cluster node. Please make sure that "

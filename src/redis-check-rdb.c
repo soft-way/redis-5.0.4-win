@@ -27,6 +27,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef _WIN32
+#include "Win32_Interop/Win32_Portability.h"
+#include "Win32_Interop/Win32_FDAPI.h"
+#include "Win32_Interop/Win32_ThreadControl.h"
+#include "Win32_Interop/Win32_QFork.h"
+#endif
+
 #include "server.h"
 #include "rdb.h"
 
@@ -151,6 +158,11 @@ void rdbCheckSetError(const char *fmt, ...) {
 /* During RDB check we setup a special signal handler for memory violations
  * and similar conditions, so that we can log the offending part of the RDB
  * if the crash is due to broken content. */
+#ifdef _WIN32
+void rdbCheckHandleCrash(int sig) {
+    return;
+}
+#else
 void rdbCheckHandleCrash(int sig, siginfo_t *info, void *secret) {
     UNUSED(sig);
     UNUSED(info);
@@ -159,10 +171,18 @@ void rdbCheckHandleCrash(int sig, siginfo_t *info, void *secret) {
     rdbCheckError("Server crash checking the specified RDB file!");
     exit(1);
 }
-
+#endif
 void rdbCheckSetupSignals(void) {
-    struct sigaction act;
+    /*
+        struct sigaction act;
 
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    act.sa_handler = rdbCheckHandleCrash;
+    sigaction(SIGTERM, &act, NULL);
+    sigaction(SIGINT, &act, NULL);
+      */
+#ifdef HAVE_BACKTRACE
     sigemptyset(&act.sa_mask);
     act.sa_flags = SA_NODEFER | SA_RESETHAND | SA_SIGINFO;
     act.sa_sigaction = rdbCheckHandleCrash;
@@ -170,6 +190,7 @@ void rdbCheckSetupSignals(void) {
     sigaction(SIGBUS, &act, NULL);
     sigaction(SIGFPE, &act, NULL);
     sigaction(SIGILL, &act, NULL);
+#endif
 }
 
 /* Check the specified RDB file. Return 0 if the RDB looks sane, otherwise
@@ -361,3 +382,4 @@ int redis_check_rdb_main(int argc, char **argv, FILE *fp) {
     if (fp) return (retval == 0) ? C_OK : C_ERR;
     exit(retval);
 }
+

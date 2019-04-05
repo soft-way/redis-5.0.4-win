@@ -57,6 +57,13 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef _WIN32
+#include "Win32_Interop/Win32_Portability.h"
+#include "Win32_Interop/win32fixes.h"
+#include "Win32_Interop/Win32_PThread.h"
+#include "Win32_Interop/Win32_Signal_Process.h"
+#include "Win32_Interop/Win32_ThreadControl.h"
+#endif
 
 #include "server.h"
 #include "bio.h"
@@ -156,8 +163,10 @@ void *bioProcessBackgroundJobs(void *arg) {
 
     /* Make the thread killable at any time, so that bioKillThreads()
      * can work reliably. */
+#ifndef _WIN32
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS, NULL);
+#endif
 
     pthread_mutex_lock(&bio_mutex[type]);
     /* Block SIGALRM so we are sure that only the main thread will
@@ -210,8 +219,10 @@ void *bioProcessBackgroundJobs(void *arg) {
         listDelNode(bio_jobs[type],ln);
         bio_pending[type]--;
 
+#ifndef _WIN32
         /* Unblock threads blocked on bioWaitStepOfType() if any. */
         pthread_cond_broadcast(&bio_step_cond[type]);
+#endif
     }
 }
 
@@ -251,6 +262,7 @@ unsigned long long bioWaitStepOfType(int type) {
  * Currently Redis does this only on crash (for instance on SIGSEGV) in order
  * to perform a fast memory check without other threads messing with memory. */
 void bioKillThreads(void) {
+#ifndef _WIN32
     int err, j;
 
     for (j = 0; j < BIO_NUM_OPS; j++) {
@@ -265,4 +277,9 @@ void bioKillThreads(void) {
             }
         }
     }
+#else
+    // TODO: pthreads routines in win32fixes needs rework for this to work properly. 
+    // utility of this is questionable on windows.
+#endif
+
 }

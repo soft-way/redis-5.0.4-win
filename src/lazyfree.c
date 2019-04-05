@@ -4,7 +4,11 @@
 #include "cluster.h"
 
 static size_t lazyfree_objects = 0;
+#ifdef _WIN32
+pthread_mutex_t lazyfree_objects_mutex;
+#else
 pthread_mutex_t lazyfree_objects_mutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
 
 /* Return the number of currently pending objects to free. */
 size_t lazyfreeGetPendingObjectsCount(void) {

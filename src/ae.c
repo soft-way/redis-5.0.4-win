@@ -31,16 +31,18 @@
  */
 
 #include <stdio.h>
-
+#include <sys/types.h> 
 #ifdef _WIN32
-#include <winsock2.h>
+#include <sys/timeb.h>
+#include "../../src/Win32_Interop/Win32_FDAPI.h"
+#include "../../src/Win32_Interop/Win32_Service.h"
 #else
 #include <sys/time.h>
-#include <sys/types.h>
 #include <unistd.h>
-#include <stdlib.h>
 #include <poll.h>
 #endif
+
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <errno.h>
@@ -51,6 +53,9 @@
 
 /* Include the best multiplexing layer supported by this system.
  * The following should be ordered by performances, descending. */
+#ifdef _WIN32
+#include "ae_wsiocp.c"
+#else
 #ifdef HAVE_EVPORT
 #include "ae_evport.c"
 #else
@@ -63,6 +68,7 @@
         #include "ae_select.c"
         #endif
     #endif
+#endif
 #endif
 
 aeEventLoop *aeCreateEventLoop(int setsize) {
@@ -189,11 +195,21 @@ int aeGetFileEvents(aeEventLoop *eventLoop, int fd) {
 
 static void aeGetTime(long *seconds, long *milliseconds)
 {
+#ifdef _WIN32
+    struct _timeb tb;
+
+    memset(&tb, 0, sizeof(struct _timeb));
+    _ftime_s(&tb);
+    (*seconds) = tb.time;
+    (*milliseconds) = tb.millitm;
+#else
     struct timeval tv;
 
     gettimeofday(&tv, NULL);
     *seconds = tv.tv_sec;
-    *milliseconds = tv.tv_usec/1000;
+    *milliseconds = tv.tv_usec / 1000;
+#endif
+
 }
 
 static void aeAddMillisecondsToNow(long long milliseconds, long *sec, long *ms) {

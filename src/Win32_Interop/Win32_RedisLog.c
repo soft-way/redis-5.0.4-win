@@ -217,7 +217,11 @@ void redisLog(int level, const char *fmt, ...) {
 void redisLogFromHandler(int level, const char *msg) {
 }
 
+void serverLogRaw(int level, const char *msg) {
+}
 
+void serverLog(int level, const char *fmt, ...) {
+}
 
-
-
+void serverLogFromHandler(int level, const char *msg) {
+}

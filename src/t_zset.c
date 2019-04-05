@@ -784,31 +784,31 @@ unsigned int zzlLength(unsigned char *zl) {
 /* Move to next entry based on the values in eptr and sptr. Both are set to
  * NULL when there is no next entry. */
 void zzlNext(unsigned char *zl, unsigned char **eptr, unsigned char **sptr) {
-    unsigned char *_eptr, *_sptr;
+    unsigned char *_eptr, *_sptr_;
     serverAssert(*eptr != NULL && *sptr != NULL);
 
     _eptr = ziplistNext(zl,*sptr);
     if (_eptr != NULL) {
-        _sptr = ziplistNext(zl,_eptr);
-        serverAssert(_sptr != NULL);
+        _sptr_ = ziplistNext(zl,_eptr);
+        serverAssert(_sptr_ != NULL);
     } else {
         /* No next entry. */
-        _sptr = NULL;
+        _sptr_ = NULL;
     }
 
     *eptr = _eptr;
-    *sptr = _sptr;
+    *sptr = _sptr_;
 }
 
 /* Move to the previous entry based on the values in eptr and sptr. Both are
  * set to NULL when there is no next entry. */
 void zzlPrev(unsigned char *zl, unsigned char **eptr, unsigned char **sptr) {
-    unsigned char *_eptr, *_sptr;
+    unsigned char *_eptr, *_sptr_;
     serverAssert(*eptr != NULL && *sptr != NULL);
 
-    _sptr = ziplistPrev(zl,*eptr);
-    if (_sptr != NULL) {
-        _eptr = ziplistPrev(zl,_sptr);
+    _sptr_ = ziplistPrev(zl,*eptr);
+    if (_sptr_ != NULL) {
+        _eptr = ziplistPrev(zl, _sptr_);
         serverAssert(_eptr != NULL);
     } else {
         /* No previous entry. */
@@ -816,7 +816,7 @@ void zzlPrev(unsigned char *zl, unsigned char **eptr, unsigned char **sptr) {
     }
 
     *eptr = _eptr;
-    *sptr = _sptr;
+    *sptr = _sptr_;
 }
 
 /* Returns if there is a part of the zset is in range. Should only be used

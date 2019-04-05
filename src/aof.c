@@ -28,12 +28,13 @@
  */
 
 #ifdef _WIN32
-#include "Win32_Interop/Win32_PThread.h"
 #include "Win32_Interop/Win32_Portability.h"
-#include "Win32_Interop/Win32_FDAPI.h"
-//#include "Win32_Interop/Win32_ThreadControl.h"
-#include "Win32_Interop/Win32_QFork.h"
-
+#include "Win32_Interop/win32_types.h"
+#include "Win32_Interop/win32fixes.h"
+#include "Win32_Interop/Win32_Time.h"
+#include <process.h>    // for getpid
+#include <direct.h>     // for getcwd
+#include <shlwapi.h>    // for PathIsRelative
 #endif
 
 #include "server.h"
@@ -50,6 +51,8 @@
 #include <sys/resource.h>
 #include <sys/wait.h>
 #include <sys/param.h>
+#else
+#include "Win32_Interop/Win32_QFork.h"
 #endif
 
 void aofUpdateCurrentSize(void);
@@ -223,9 +226,13 @@ static void killAppendOnlyChild(void) {
     /* Kill AOFRW child, wait for child exit. */
     serverLog(LL_NOTICE,"Killing running AOF rewrite child: %ld",
         (long) server.aof_child_pid);
+#ifdef _WIN32
+    AbortForkOperation();
+#else
     if (kill(server.aof_child_pid,SIGUSR1) != -1) {
         while(wait3(&statloc,0,NULL) != server.aof_child_pid);
     }
+#endif
     /* Reset the buffer accumulating changes while the child saves. */
     aofRewriteBufferReset();
     aofRemoveTempFile(server.aof_child_pid);
@@ -252,13 +259,13 @@ void stopAppendOnly(void) {
 /* Called when the user switches from "appendonly no" to "appendonly yes"
  * at runtime using the CONFIG command. */
 int startAppendOnly(void) {
-    char cwd[MAXPATHLEN]; /* Current working dir path for error messages. */
+    char cwd[MAX_PATH]; /* Current working dir path for error messages. */
     int newfd;
 
     newfd = open(server.aof_filename,O_WRONLY|O_APPEND|O_CREAT,0644);
     serverAssert(server.aof_state == AOF_OFF);
     if (newfd == -1) {
-        char *cwdp = getcwd(cwd,MAXPATHLEN);
+        char *cwdp = getcwd(cwd, MAX_PATH);
 
         serverLog(LL_WARNING,
             "Redis needs to enable the AOF but can't open the "
@@ -1361,7 +1368,7 @@ int rewriteAppendOnlyFile(char *filename) {
 
     /* Note that we have to use a different temp name here compared to the
      * one used by rewriteAppendOnlyFileBackground() function. */
-    snprintf(tmpfile,256,"temp-rewriteaof-%d.aof", (int) getpid());
+    snprintf(tmpfile, 256, "temp-rewriteaof-%d.aof", (int)getpid());
     fp = fopen(tmpfile,"w");
     if (!fp) {
         serverLog(LL_WARNING, "Opening the temp file for AOF rewrite in rewriteAppendOnlyFile(): %s", strerror(errno));
@@ -1549,6 +1556,7 @@ int rewriteAppendOnlyFileBackground(void) {
     if (aofCreatePipes() != C_OK) return C_ERR;
     openChildInfoPipe();
     start = ustime();
+#ifndef _WIN32
     if ((childpid = fork()) == 0) {
         char tmpfile[256];
 
@@ -1598,6 +1606,7 @@ int rewriteAppendOnlyFileBackground(void) {
         replicationScriptCacheFlush();
         return C_OK;
     }
+#endif
     return C_OK; /* unreached */
 }
 
@@ -1655,9 +1664,14 @@ void backgroundRewriteDoneHandler(int exitcode, int bysignal) {
         /* Flush the differences accumulated by the parent to the
          * rewritten AOF. */
         latencyStartMonitor(latency);
-        snprintf(tmpfile,256,"temp-rewriteaof-bg-%d.aof",
+#ifdef _WIN32
+        snprintf(tmpfile, 256, "temp-rewriteaof-bg-0.aof");
+        newfd = open(tmpfile, O_WRONLY | O_APPEND | O_CREAT | _O_BINARY, _S_IREAD | _S_IWRITE);
+#else
+        snprintf(tmpfile, 256, "temp-rewriteaof-bg-%d.aof",
             (int)server.aof_child_pid);
-        newfd = open(tmpfile,O_WRONLY|O_APPEND);
+        newfd = open(tmpfile, O_WRONLY | O_APPEND);
+#endif
         if (newfd == -1) {
             serverLog(LL_WARNING,
                 "Unable to open the temporary AOF produced by the child: %s", strerror(errno));
@@ -1709,7 +1723,12 @@ void backgroundRewriteDoneHandler(int exitcode, int bysignal) {
             /* Don't care if this fails: oldfd will be -1 and we handle that.
              * One notable case of -1 return is if the old file does
              * not exist. */
-            oldfd = open(server.aof_filename,O_RDONLY|O_NONBLOCK);
+#ifdef _WIN32
+            oldfd = open(server.aof_filename, 
+                         O_WRONLY | O_APPEND | O_CREAT | _O_BINARY, _S_IREAD | _S_IWRITE);
+#else
+            oldfd = open(server.aof_filename, O_RDONLY | O_NONBLOCK);
+#endif
         } else {
             /* AOF enabled */
             oldfd = -1; /* We'll set this to the current AOF filedes later. */
@@ -1768,8 +1787,10 @@ void backgroundRewriteDoneHandler(int exitcode, int bysignal) {
     } else if (!bysignal && exitcode != 0) {
         /* SIGUSR1 is whitelisted, so we have a way to kill a child without
          * tirggering an error condition. */
+#ifndef _WIN32
         if (bysignal != SIGUSR1)
             server.aof_lastbgrewrite_status = C_ERR;
+#endif
         serverLog(LL_WARNING,
             "Background AOF rewrite terminated with error");
     } else {

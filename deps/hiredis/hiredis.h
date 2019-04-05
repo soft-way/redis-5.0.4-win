@@ -39,6 +39,8 @@
 #include <sys/time.h> /* for struct timeval */
 #else
 #include "../../src/Win32_Interop/win32_types_hiredis.h"
+#define strncasecmp _strnicmp
+#define strcasecmp _stricmp
 #endif
 #include <stdint.h> /* uintXX_t, etc */
 #include "sds.h" /* for sds */

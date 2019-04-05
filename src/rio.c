@@ -44,11 +44,16 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef _WIN32
+#include "Win32_Interop/Win32_Portability.h"
+#include "win32_interop/win32_types.h"
+#include "Win32_Interop/Win32_FDAPI.h"
+#endif
 
 #include "fmacros.h"
 #include <string.h>
 #include <stdio.h>
-#include <unistd.h>
+POSIX_ONLY(#include <unistd.h>)
 #include "rio.h"
 #include "util.h"
 #include "crc64.h"

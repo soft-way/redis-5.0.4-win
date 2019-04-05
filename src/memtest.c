@@ -26,6 +26,12 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+
+#ifdef _WIN32
+#include "Win32_Interop/Win32_Portability.h"
+#include "Win32_Interop/win32_types.h"
+#endif
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -33,8 +39,13 @@
 #include <assert.h>
 #include <limits.h>
 #include <errno.h>
+#ifndef _WIN32
 #include <termios.h>
 #include <sys/ioctl.h>
+#else
+#include "Win32_Interop/win32fixes.h"
+#include "Win32_Interop/win32_ANSI.h"
+#endif
 #if defined(__sun)
 #include <stropts.h>
 #endif
@@ -54,6 +65,14 @@
 #else
 #define ULONG_ONEZERO 0xaaaaaaaaaaaaaaaaUL
 #define ULONG_ZEROONE 0x5555555555555555UL
+#endif
+
+#ifdef _WIN32
+typedef struct winsize
+{
+    unsigned short ws_row;
+    unsigned short ws_col;
+};
 #endif
 
 static struct winsize ws;
@@ -347,10 +366,25 @@ void memtest_alloc_and_test(size_t megabytes, int passes) {
 }
 
 void memtest(size_t megabytes, int passes) {
+#ifdef _WIN32
+    HANDLE hOut;
+    CONSOLE_SCREEN_BUFFER_INFO b;
+
+    hOut = GetStdHandle(STD_OUTPUT_HANDLE);
+    if (GetConsoleScreenBufferInfo(hOut, &b)) {
+        ws.ws_col = b.dwSize.X;
+        ws.ws_row = b.dwSize.Y;
+    }
+    else {
+        ws.ws_col = 80;
+        ws.ws_row = 20;
+    }
+#else
     if (ioctl(1, TIOCGWINSZ, &ws) == -1) {
         ws.ws_col = 80;
         ws.ws_row = 20;
     }
+#endif
     memtest_alloc_and_test(megabytes,passes);
     printf("\nYour memory passed this test.\n");
     printf("Please if you are still in doubt use the following two tools:\n");

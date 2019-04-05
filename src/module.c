@@ -29,7 +29,9 @@
 
 #include "server.h"
 #include "cluster.h"
+#ifndef _WIN32
 #include <dlfcn.h>
+#endif
 
 #define REDISMODULE_CORE 1
 #include "redismodule.h"
@@ -226,12 +228,20 @@ typedef struct RedisModuleBlockedClient {
     int dbid;           /* Database number selected by the original client. */
 } RedisModuleBlockedClient;
 
+#ifdef _WIN32
+static pthread_mutex_t moduleUnblockedClientsMutex;
+#else
 static pthread_mutex_t moduleUnblockedClientsMutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
 static list *moduleUnblockedClients;
 
 /* We need a mutex that is unlocked / relocked in beforeSleep() in order to
  * allow thread safe contexts to execute commands at a safe moment. */
+#ifdef _WIN32
+static pthread_mutex_t moduleGIL;
+#else
 static pthread_mutex_t moduleGIL = PTHREAD_MUTEX_INITIALIZER;
+#endif
 
 
 /* Function pointer type for keyspace event notification subscriptions from modules. */
@@ -4895,14 +4905,30 @@ int moduleLoad(const char *path, void **module_argv, int module_argc) {
     void *handle;
     RedisModuleCtx ctx = REDISMODULE_CTX_INIT;
 
-    handle = dlopen(path,RTLD_NOW|RTLD_LOCAL);
+#ifdef _WIN32
+    handle = LoadLibrary(path);
+#else
+    handle = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+#endif
     if (handle == NULL) {
+#ifdef _WIN32
+        serverLog(LL_WARNING, "Module %s failed to load: %d", path, GetLastError());
+#else
         serverLog(LL_WARNING, "Module %s failed to load: %s", path, dlerror());
+#endif
         return C_ERR;
     }
-    onload = (int (*)(void *, void **, int))(unsigned long) dlsym(handle,"RedisModule_OnLoad");
+#ifdef _WIN32
+    onload = (int(*)(void *, void **, int))(unsigned long) GetProcAddress(handle, "RedisModule_OnLoad");
+#else
+    onload = (int(*)(void *, void **, int))(unsigned long) dlsym(handle, "RedisModule_OnLoad");
+#endif
     if (onload == NULL) {
+#ifdef _WIN32
+        FreeLibrary(handle);
+#else
         dlclose(handle);
+#endif
         serverLog(LL_WARNING,
             "Module %s does not export RedisModule_OnLoad() "
             "symbol. Module not loaded.",path);
@@ -4915,7 +4941,11 @@ int moduleLoad(const char *path, void **module_argv, int module_argc) {
             moduleUnregisterUsedAPI(ctx.module);
             moduleFreeModuleStructure(ctx.module);
         }
+#ifdef _WIN32
+        FreeLibrary(handle);
+#else
         dlclose(handle);
+#endif
         serverLog(LL_WARNING,
             "Module %s initialization failed. Module not loaded",path);
         return C_ERR;
@@ -4960,9 +4990,15 @@ int moduleUnload(sds name) {
     /* Unregister all the hooks. TODO: Yet no hooks support here. */
 
     /* Unload the dynamic library. */
+#ifdef _WIN32
+    if (FreeLibrary(module->handle) == -1) {
+        char error[128];
+        sprintf(error, "%s", GetLastError());
+#else
     if (dlclose(module->handle) == -1) {
         char *error = dlerror();
         if (error == NULL) error = "Unknown error";
+#endif
         serverLog(LL_WARNING,"Error when trying to close the %s module: %s",
             module->name, error);
     }

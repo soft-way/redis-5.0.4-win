@@ -88,6 +88,9 @@ typedef long long mstime_t; /* millisecond time type. */
 #include "endianconv.h"
 #include "crc64.h"
 
+/* Anti-warning macro... */
+#define REDIS_NOTUSED(V) ((void) V)
+
 /* Error codes */
 #define C_OK                    0
 #define C_ERR                   -1

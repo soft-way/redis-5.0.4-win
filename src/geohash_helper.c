@@ -34,6 +34,10 @@
  * https://github.com/yinqiwen/ardb/blob/d42503/src/geo/geohash_helper.cpp
  */
 
+#ifdef _WIN32
+#define _USE_MATH_DEFINES
+#endif
+
 #include "fmacros.h"
 #include "geohash_helper.h"
 #include "debugmacro.h"

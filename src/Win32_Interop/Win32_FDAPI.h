@@ -32,7 +32,9 @@ typedef unsigned long nfds_t;
 
 // Important! Do not include Winsock API definitions to avoid conflicts
 // with API entry points defined below.
+#ifndef INCL_WINSOCK_API_PROTOTYPES
 #define INCL_WINSOCK_API_PROTOTYPES 0
+#endif
 #include "win32_types.h"
 #include <WinSock2.h>
 #include <fcntl.h>
@@ -53,6 +55,7 @@ typedef unsigned long nfds_t;
 
 #define GAI_STRERROR_BUFFER_SIZE 1024
 
+#ifndef gai_strerrorA
 WS2TCPIP_INLINE char* gai_strerrorA(_In_ int ecode) {
     DWORD dwMsgLen;
     static char buff[GAI_STRERROR_BUFFER_SIZE + 1];
@@ -69,6 +72,7 @@ WS2TCPIP_INLINE char* gai_strerrorA(_In_ int ecode) {
 
     return buff;
 }
+#endif
 
 WS2TCPIP_INLINE WCHAR* gai_strerrorW(_In_ int ecode) {
     DWORD dwMsgLen;

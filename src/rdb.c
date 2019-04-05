@@ -27,8 +27,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+
 #ifdef _WIN32
+#include "Win32_Interop/Win32_Portability.h"
 #include "Win32_Interop/win32_types.h"
+#include "Win32_Interop/win32fixes.h"
+#include "Win32_Interop/Win32_Time.h"
+#include <process.h>    // for getpid
+#include <direct.h>     // for getcwd
+#include <shlwapi.h>    // for PathIsRelative
 #endif
 
 #include "server.h"
@@ -1229,7 +1236,7 @@ werr: /* Write error. */
 /* Save the DB on disk. Return C_ERR on error, C_OK on success. */
 int rdbSave(char *filename, rdbSaveInfo *rsi) {
     char tmpfile[256];
-    char cwd[MAXPATHLEN]; /* Current working dir path for error messages. */
+    char cwd[MAX_PATH]; /* Current working dir path for error messages. */
     FILE *fp;
     rio rdb;
     int error = 0;
@@ -1237,7 +1244,7 @@ int rdbSave(char *filename, rdbSaveInfo *rsi) {
     snprintf(tmpfile,256,"temp-%d.rdb", (int) getpid());
     fp = fopen(tmpfile,"w");
     if (!fp) {
-        char *cwdp = getcwd(cwd,MAXPATHLEN);
+        char *cwdp = getcwd(cwd, MAX_PATH);
         serverLog(LL_WARNING,
             "Failed opening the RDB file %s (in server root dir %s) "
             "for saving: %s",
@@ -1265,7 +1272,7 @@ int rdbSave(char *filename, rdbSaveInfo *rsi) {
     /* Use RENAME to make sure the DB file is changed atomically only
      * if the generate DB file is ok. */
     if (rename(tmpfile,filename) == -1) {
-        char *cwdp = getcwd(cwd,MAXPATHLEN);
+        char *cwdp = getcwd(cwd,MAX_PATH);
         serverLog(LL_WARNING,
             "Error moving temp DB file %s on the final "
             "destination %s (in server root dir %s): %s",
@@ -1301,6 +1308,9 @@ int rdbSaveBackground(char *filename, rdbSaveInfo *rsi) {
     openChildInfoPipe();
 
     start = ustime();
+#ifdef _WIN32
+    childpid = BeginForkOperation_Rdb(filename, &server, sizeof(server), dictGetHashFunctionSeed());
+#else
     if ((childpid = fork()) == 0) {
         int retval;
 
@@ -1322,6 +1332,7 @@ int rdbSaveBackground(char *filename, rdbSaveInfo *rsi) {
         }
         exitFromChild((retval == C_OK) ? 0 : 1);
     } else {
+#endif
         /* Parent */
         server.stat_fork_time = ustime()-start;
         server.stat_fork_rate = (double) zmalloc_used_memory() * 1000000 / server.stat_fork_time / (1024*1024*1024); /* GB per second. */
@@ -1339,7 +1350,10 @@ int rdbSaveBackground(char *filename, rdbSaveInfo *rsi) {
         server.rdb_child_type = RDB_CHILD_TYPE_DISK;
         updateDictResizePolicy();
         return C_OK;
+#ifndef _WIN32
     }
+#endif
+
     return C_OK; /* unreached */
 }
 
@@ -2114,8 +2128,10 @@ void backgroundSaveDoneHandlerDisk(int exitcode, int bysignal) {
         latencyAddSampleIfNeeded("rdb-unlink-temp-file",latency);
         /* SIGUSR1 is whitelisted, so we have a way to kill a child without
          * tirggering an error condition. */
+#ifndef _WIN32
         if (bysignal != SIGUSR1)
             server.lastbgsave_status = C_ERR;
+#endif
     }
     server.rdb_child_pid = -1;
     server.rdb_child_type = RDB_CHILD_TYPE_NONE;
@@ -2285,6 +2301,11 @@ int rdbSaveToSlavesSockets(rdbSaveInfo *rsi) {
     /* Create the child process. */
     openChildInfoPipe();
     start = ustime();
+
+#ifdef _WIN32
+    childpid = BeginForkOperation_Socket(fds, numfds, clientids, pipefds[1], &server, sizeof(server), dictGetHashFunctionSeed());
+#else
+
     if ((childpid = fork()) == 0) {
         /* Child */
         int retval;
@@ -2355,6 +2376,7 @@ int rdbSaveToSlavesSockets(rdbSaveInfo *rsi) {
         rioFreeFdset(&slave_sockets);
         exitFromChild((retval == C_OK) ? 0 : 1);
     } else {
+#endif
         /* Parent */
         if (childpid == -1) {
             serverLog(LL_WARNING,"Can't save in background: fork: %s",
@@ -2393,7 +2415,10 @@ int rdbSaveToSlavesSockets(rdbSaveInfo *rsi) {
         zfree(clientids);
         zfree(fds);
         return (childpid == -1) ? C_ERR : C_OK;
+#ifndef _WIN32
     }
+#endif
+
     return C_OK; /* Unreached. */
 }
 

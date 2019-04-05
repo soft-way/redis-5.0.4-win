@@ -34,6 +34,9 @@
 #define strcasecmp  _stricmp
 #define strtoll     _strtoi64
 
+#define strncasecmp _strnicmp
+#define strcasecmp  _stricmp
+
 #ifdef _WIN64
 #define strtol      _strtoi64
 #define strtoul     _strtoui64

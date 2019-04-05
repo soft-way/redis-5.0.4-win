@@ -31,9 +31,13 @@
 #include "sha1.h"   /* SHA1 is used for DEBUG DIGEST */
 #include "crc64.h"
 
+#ifndef _WIN32
 #include <arpa/inet.h>
-#include <signal.h>
 #include <dlfcn.h>
+#else
+#include "Win32_Interop/Win32_Portability.h"
+#endif
+#include <signal.h>
 
 #ifdef HAVE_BACKTRACE
 #include <execinfo.h>
@@ -532,11 +536,15 @@ NULL
     } else if (!strcasecmp(c->argv[1]->ptr,"sleep") && c->argc == 3) {
         double dtime = strtod(c->argv[2]->ptr,NULL);
         long long utime = dtime*1000000;
+#ifdef _WIN32
+        Sleep(utime / 1000);
+#else
         struct timespec tv;
 
         tv.tv_sec = utime / 1000000;
         tv.tv_nsec = (utime % 1000000) * 1000;
         nanosleep(&tv, NULL);
+#endif
         addReply(c,shared.ok);
     } else if (!strcasecmp(c->argv[1]->ptr,"set-active-expire") &&
                c->argc == 3)
@@ -1372,7 +1380,20 @@ void serverLogHexDump(int level, char *descr, void *value, size_t len) {
 }
 
 /* =========================== Software Watchdog ============================ */
+#ifdef _WIN32
+/* No support for debug watchdog */
+void watchdogScheduleSignal(int period) {
+    REDIS_NOTUSED(period);
+}
+void enableWatchdog(int period) {
+    REDIS_NOTUSED(period);
+}
+void disableWatchdog(void) {
+}
+#else
+#ifdef HAVE_BACKTRACE
 #include <sys/time.h>
+#endif
 
 void watchdogSignalHandler(int sig, siginfo_t *info, void *secret) {
 #ifdef HAVE_BACKTRACE
@@ -1444,3 +1465,4 @@ void disableWatchdog(void) {
     sigaction(SIGALRM, &act, NULL);
     server.watchdog_period = 0;
 }
+#endif

@@ -1,4 +1,5 @@
-
+#ifndef WIN32_PTHREAD_H
+#define WIN32_PTHREAD_H
 
 #include <windows.h>
 #include <errno.h>
@@ -51,3 +52,5 @@ int pthread_cond_signal(pthread_cond_t *cond);
 
 int pthread_detach(pthread_t thread);
 int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
+
+#endif

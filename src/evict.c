@@ -161,7 +161,11 @@ void evictionPoolAlloc(void) {
 
 void evictionPoolPopulate(int dbid, dict *sampledict, dict *keydict, struct evictionPoolEntry *pool) {
     int j, k, count;
+#ifdef _WIN32
+    dictEntry *samples[100];
+#else
     dictEntry *samples[server.maxmemory_samples];
+#endif
 
     count = dictGetSomeKeys(sampledict,samples,server.maxmemory_samples);
     for (j = 0; j < count; j++) {
