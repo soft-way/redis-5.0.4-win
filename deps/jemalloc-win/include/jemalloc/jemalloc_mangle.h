@@ -9,32 +9,27 @@
 #  ifndef JEMALLOC_NO_DEMANGLE
 #    define JEMALLOC_NO_DEMANGLE
 #  endif
+#  define aligned_alloc je_aligned_alloc
+#  define calloc je_calloc
+#  define dallocx je_dallocx
+#  define free je_free
+#  define mallctl je_mallctl
+#  define mallctlbymib je_mallctlbymib
+#  define mallctlnametomib je_mallctlnametomib
+#  define malloc je_malloc
 #  define malloc_conf je_malloc_conf
 #  define malloc_message je_malloc_message
-#  define malloc je_malloc
-#  define calloc je_calloc
-#  define posix_memalign je_posix_memalign
-#  define aligned_alloc je_aligned_alloc
-#  define realloc je_realloc
-#  define free je_free
-#  define mallocx je_mallocx
-#  define rallocx je_rallocx
-#  define xallocx je_xallocx
-#  define sallocx je_sallocx
-#  define dallocx je_dallocx
-#  define nallocx je_nallocx
-#  define mallctl je_mallctl
-#  define mallctlnametomib je_mallctlnametomib
-#  define mallctlbymib je_mallctlbymib
 #  define malloc_stats_print je_malloc_stats_print
 #  define malloc_usable_size je_malloc_usable_size
-#  define memalign je_memalign
-#  define valloc je_valloc
-#  define allocm je_allocm
-#  define dallocm je_dallocm
-#  define nallocm je_nallocm
-#  define rallocm je_rallocm
-#  define sallocm je_sallocm
+#  define mallocx je_mallocx
+#  define smallocx_b0b3e49a54ec29e32636f4577d9d5a896d67fd20 je_smallocx_b0b3e49a54ec29e32636f4577d9d5a896d67fd20
+#  define nallocx je_nallocx
+#  define posix_memalign je_posix_memalign
+#  define rallocx je_rallocx
+#  define realloc je_realloc
+#  define sallocx je_sallocx
+#  define sdallocx je_sdallocx
+#  define xallocx je_xallocx
 #endif
 
 /*
@@ -45,30 +40,25 @@
  * and/or --with-jemalloc-prefix.
  */
 #ifndef JEMALLOC_NO_DEMANGLE
+#  undef je_aligned_alloc
+#  undef je_calloc
+#  undef je_dallocx
+#  undef je_free
+#  undef je_mallctl
+#  undef je_mallctlbymib
+#  undef je_mallctlnametomib
+#  undef je_malloc
 #  undef je_malloc_conf
 #  undef je_malloc_message
-#  undef je_malloc
-#  undef je_calloc
-#  undef je_posix_memalign
-#  undef je_aligned_alloc
-#  undef je_realloc
-#  undef je_free
-#  undef je_mallocx
-#  undef je_rallocx
-#  undef je_xallocx
-#  undef je_sallocx
-#  undef je_dallocx
-#  undef je_nallocx
-#  undef je_mallctl
-#  undef je_mallctlnametomib
-#  undef je_mallctlbymib
 #  undef je_malloc_stats_print
 #  undef je_malloc_usable_size
-#  undef je_memalign
-#  undef je_valloc
-#  undef je_allocm
-#  undef je_dallocm
-#  undef je_nallocm
-#  undef je_rallocm
-#  undef je_sallocm
+#  undef je_mallocx
+#  undef je_smallocx_b0b3e49a54ec29e32636f4577d9d5a896d67fd20
+#  undef je_nallocx
+#  undef je_posix_memalign
+#  undef je_rallocx
+#  undef je_realloc
+#  undef je_sallocx
+#  undef je_sdallocx
+#  undef je_xallocx
 #endif

@@ -29,7 +29,9 @@
 
 #include "server.h"
 #include "cluster.h"
-#ifndef _WIN32
+#ifdef _WIN32
+#include "Win32_Interop/Win32_RedisLog.h"
+#else
 #include <dlfcn.h>
 #endif
 
@@ -4814,6 +4816,9 @@ int moduleRegisterApi(const char *funcname, void *funcptr) {
 void moduleRegisterCoreAPI(void);
 
 void moduleInitModulesSystem(void) {
+    pthread_mutex_init(&moduleGIL, 0);
+    pthread_mutex_init(&moduleUnblockedClientsMutex, 0);
+
     moduleUnblockedClients = listCreate();
     server.loadmodule_queue = listCreate();
     modules = dictCreate(&modulesDictType,NULL);

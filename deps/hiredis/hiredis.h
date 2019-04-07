@@ -158,6 +158,7 @@ typedef struct redisContext {
     struct {
         char *host;
         char *source_addr;
+        int source_port;
         int port;
     } tcp;
 

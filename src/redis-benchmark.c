@@ -42,10 +42,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-POSIX_ONLY(#include <unistd.h>)
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 #include <errno.h>
 #include <time.h>
-POSIX_ONLY(#include <sys/time.h>)
+#ifndef _WIN32
+#include <sys/time.h>
+#endif
 #include <signal.h>
 #include <assert.h>
 

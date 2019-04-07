@@ -90,7 +90,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <PreprocessorDefinitions>USE_JEMALLOC;_OFF_T_DEFINED;WIN32;LACKS_STDLIB_H;_DEBUG;_CONSOLE;__x86_64__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\deps\lua\src;$(SolutionDir)..\deps\hiredis;$(SolutionDir)..\deps\jemalloc-win\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\deps\lua\src;$(SolutionDir)..\deps\hiredis;$(SolutionDir)..\deps\jemalloc-win\include;$(SolutionDir)..\deps\jemalloc-win\include\msvc_compat</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -102,7 +102,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <AdditionalLibraryDirectories>$(OutDir);$(OutDir)lib</AdditionalLibraryDirectories>
-      <AdditionalDependencies>psapi.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;advapi32.lib;shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>jemallocd.lib;psapi.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;advapi32.lib;shell32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
       <IgnoreSpecificDefaultLibraries>MSVCRT.lib</IgnoreSpecificDefaultLibraries>
@@ -132,7 +132,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <PreprocessorDefinitions>USE_JEMALLOC;_OFF_T_DEFINED;WIN32;LACKS_STDLIB_H;NDEBUG;_CONSOLE;__x86_64__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\deps\lua\src;$(SolutionDir)..\deps\hiredis;$(SolutionDir)..\deps\jemalloc-win\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)..\deps\lua\src;$(SolutionDir)..\deps\hiredis;$(SolutionDir)..\deps\jemalloc-win\include;$(SolutionDir)..\deps\jemalloc-win\include\msvc_compat</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
@@ -291,9 +291,6 @@
     <ClInclude Include="..\src\zmalloc.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\deps\jemalloc-win\projects\jemalloc\proj.win32\vc2013\jemalloc.vcxproj">
-      <Project>{8b897e33-6428-4254-8335-4911d179bad1}</Project>
-    </ProjectReference>
     <ProjectReference Include="..\src\Win32_Interop\Win32_Interop.vcxproj">
       <Project>{8c07f811-c81c-432c-b334-1ae6faecf951}</Project>
     </ProjectReference>

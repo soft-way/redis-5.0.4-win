@@ -46,6 +46,10 @@ void redisLogRaw(int level, const char *msg);
 void redisLog(int level, const char *fmt, ...);
 void redisLogFromHandler(int level, const char *msg);
 
+#define serverLogRaw redisLogRaw
+#define serverLog redisLog
+#define serverLogFromHandler redisLogFromHandler
+
 #ifdef __cplusplus
 }
 #endif

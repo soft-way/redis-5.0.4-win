@@ -28,6 +28,7 @@
  */
 
 #ifdef _WIN32
+#include "Win32_Interop/Win32_RedisLog.h"
 #include "Win32_Interop/Win32_Portability.h"
 #include "Win32_Interop/win32_types.h"
 #include "Win32_Interop/win32fixes.h"
@@ -259,13 +260,21 @@ void stopAppendOnly(void) {
 /* Called when the user switches from "appendonly no" to "appendonly yes"
  * at runtime using the CONFIG command. */
 int startAppendOnly(void) {
+#ifdef _WIN32
     char cwd[MAX_PATH]; /* Current working dir path for error messages. */
+#else
+    char cwd[MAXPATHLEN]; /* Current working dir path for error messages. */
+#endif
     int newfd;
 
     newfd = open(server.aof_filename,O_WRONLY|O_APPEND|O_CREAT,0644);
     serverAssert(server.aof_state == AOF_OFF);
     if (newfd == -1) {
+#ifdef _WIN32
         char *cwdp = getcwd(cwd, MAX_PATH);
+#else
+        char *cwdp = getcwd(cwd, MAXPATHLEN);
+#endif
 
         serverLog(LL_WARNING,
             "Redis needs to enable the AOF but can't open the "

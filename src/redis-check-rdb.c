@@ -173,15 +173,15 @@ void rdbCheckHandleCrash(int sig, siginfo_t *info, void *secret) {
 }
 #endif
 void rdbCheckSetupSignals(void) {
-    /*
-        struct sigaction act;
-
+#ifndef _WIN32
+    struct sigaction act;
     sigemptyset(&act.sa_mask);
     act.sa_flags = 0;
     act.sa_handler = rdbCheckHandleCrash;
     sigaction(SIGTERM, &act, NULL);
     sigaction(SIGINT, &act, NULL);
-      */
+#endif
+
 #ifdef HAVE_BACKTRACE
     sigemptyset(&act.sa_mask);
     act.sa_flags = SA_NODEFER | SA_RESETHAND | SA_SIGINFO;

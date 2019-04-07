@@ -214,14 +214,3 @@ void redisLog(int level, const char *fmt, ...) {
  * We actually use this only for signals that are not fatal from the point
  * of view of Redis. Signals that are going to kill the server anyway and
  * where we need printf-alike features are served by redisLog(). */
-void redisLogFromHandler(int level, const char *msg) {
-}
-
-void serverLogRaw(int level, const char *msg) {
-}
-
-void serverLog(int level, const char *fmt, ...) {
-}
-
-void serverLogFromHandler(int level, const char *msg) {
-}

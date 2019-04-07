@@ -91,6 +91,11 @@ size_t zmalloc_get_smap_bytes_by_field(char *field, long pid);
 size_t zmalloc_get_memory_size(void);
 void zlibc_free(void *ptr);
 
+#ifdef _WIN32
+void zmalloc_free_used_memory_mutex(void);
+void zmalloc_enable_thread_safeness(void);
+#endif
+
 #ifdef HAVE_DEFRAG
 void zfree_no_tcache(void *ptr);
 void *zmalloc_no_tcache(size_t size);

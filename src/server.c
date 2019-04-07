@@ -49,25 +49,35 @@
 
 #include <time.h>
 #include <signal.h>
-POSIX_ONLY(#include <sys/wait.h>)
+#ifndef _WIN32
+#include <sys/wait.h>
+#endif
 #include <errno.h>
 #include <assert.h>
 #include <ctype.h>
 #include <stdarg.h>
-POSIX_ONLY(#include <arpa/inet.h>)
+#ifndef _WIN32
+#include <arpa/inet.h>
 #include <sys/stat.h>
+#endif
 #include <fcntl.h>
-POSIX_ONLY(#include <sys/time.h>)
-POSIX_ONLY(#include <sys/resource.h>)
-POSIX_ONLY(#include <sys/uio.h>)
-POSIX_ONLY(#include <sys/un.h>)
+#ifndef _WIN32
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <sys/uio.h>
+#include <sys/un.h>
+#endif
 #include <limits.h>
 #include <float.h>
 #include <math.h>
-POSIX_ONLY(#include <sys/resource.h>)
-POSIX_ONLY(#include <sys/utsname.h>)
+#ifndef _WIN32
+#include <sys/resource.h>
+#include <sys/utsname.h>
+#endif
 #include <locale.h>
-POSIX_ONLY(#include <sys/socket.h>)
+#ifndef _WIN32
+#include <sys/socket.h>
+#endif
 
 /* Our shared "common" objects */
 
@@ -346,7 +356,29 @@ struct redisCommand redisCommandTable[] = {
  * function of Redis may be called from other threads. */
 void nolocks_localtime(struct tm *tmp, time_t t, time_t tz, int dst);
 
-#ifndef _WIN32 // redisLog code moved to Win32_Interop/Win32_RedisLog.c for sharing across binaries
+#ifdef _WIN32
+void redisLogFromHandler(int level, const char *msg) {
+    int fd;
+    int log_to_stdout = server.logfile[0] == '\0';
+    char buf[64];
+
+    if ((level & 0xff) < server.verbosity || (log_to_stdout && server.daemonize))
+        return;
+    fd = log_to_stdout ? STDOUT_FILENO :
+        fopen(server.logfile, O_APPEND | O_CREAT | O_WRONLY, 0644);
+    if (fd == -1) return;
+    sprintf(buf, "%ll", getpid());
+    if (write(fd, buf, strlen(buf)) == -1) goto err;
+    if (write(fd, ":signal-handler (", 17) == -1) goto err;
+    sprintf(buf, "%ll", time(NULL));
+    if (write(fd, buf, strlen(buf)) == -1) goto err;
+    if (write(fd, ") ", 2) == -1) goto err;
+    if (write(fd, msg, strlen(msg)) == -1) goto err;
+    if (write(fd, "\n", 1) == -1) goto err;
+err:
+    if (!log_to_stdout) close(fd);
+}
+#else // redisLog code moved to Win32_Interop/Win32_RedisLog.c for sharing across binaries
 /* Low level logging. To use only for very big messages, otherwise
  * serverLog() is to prefer. */
 void serverLogRaw(int level, const char *msg) {
@@ -1606,7 +1638,9 @@ void initServerConfig(void) {
     server.logfile = zstrdup(CONFIG_DEFAULT_LOGFILE);
     server.syslog_enabled = CONFIG_DEFAULT_SYSLOG_ENABLED;
     server.syslog_ident = zstrdup(CONFIG_DEFAULT_SYSLOG_IDENT);
-    POSIX_ONLY(server.syslog_facility = LOG_LOCAL0;)
+#ifndef _WIN32
+    server.syslog_facility = LOG_LOCAL0;
+#endif
     server.daemonize = CONFIG_DEFAULT_DAEMONIZE;
     server.supervised = 0;
     server.supervised_mode = SUPERVISED_NONE;
@@ -2205,12 +2239,14 @@ void initServer(void) {
 
     /* Register a readable event for the pipe used to awake the event loop
      * when a blocked client in a module needs attention. */
+/*
     if (aeCreateFileEvent(server.el, server.module_blocked_pipe[0], AE_READABLE,
         moduleBlockedClientPipeReadable,NULL) == AE_ERR) {
             serverPanic(
                 "Error registering the readable event for the module "
                 "blocked clients subsystem.");
     }
+*/
 
     /* Open the AOF file if needed. */
     if (server.aof_state == AOF_ON) {
@@ -3170,8 +3206,10 @@ sds genRedisInfoString(char *section) {
 
     /* Server */
     if (allsections || defsections || !strcasecmp(section,"server")) {
-        POSIX_ONLY(static int call_uname = 1;)
-        POSIX_ONLY(static struct utsname name;)
+#ifndef _WIN32
+        static int call_uname = 1;
+        static struct utsname name;
+#endif
         char *mode;
 
         if (server.cluster_enabled) mode = "cluster";
@@ -3180,12 +3218,13 @@ sds genRedisInfoString(char *section) {
 
         if (sections++) info = sdscat(info,"\r\n");
 
-        POSIX_ONLY(
+#ifndef _WIN32
         if (call_uname) {
             /* Uname can be slow and is always the same output. Cache it. */
             uname(&name);
             call_uname = 0;
-        })
+        }
+#endif
 
         unsigned int lruclock;
         atomicGet(server.lruclock,lruclock);
@@ -3200,7 +3239,10 @@ sds genRedisInfoString(char *section) {
             "arch_bits:%d\r\n"
             "multiplexing_api:%s\r\n"
             "atomicvar_api:%s\r\n"
-            POSIX_ONLY("gcc_version:%d.%d.%d\r\n")
+#ifndef _WIN32
+            "gcc_version:%d.%d.%d\r\n"
+#endif
+
             "process_id:%ld\r\n"
             "run_id:%s\r\n"
             "tcp_port:%d\r\n"
@@ -3216,7 +3258,9 @@ sds genRedisInfoString(char *section) {
             strtol(redisGitDirty(),NULL,10) > 0,
             (unsigned long long) redisBuildId(),
             mode,
-            POSIX_ONLY(name.sysname, name.release, name.machine,)
+#ifndef _WIN32
+            name.sysname, name.release, name.machine,
+#endif
             server.arch_bits,
             aeGetApiName(),
             REDIS_ATOMIC_API,
@@ -4053,8 +4097,8 @@ int redisSupervisedSystemd(void) {
         return 0;
     }
     close(fd);
-    return 1;
 #endif
+    return 1;
 }
 
 int redisIsSupervised(int mode) {
@@ -4115,6 +4159,7 @@ int main(int argc, char **argv) {
 #endif
     setlocale(LC_COLLATE,"");
     tzset(); /* Populates 'timezone' global. */
+    zmalloc_enable_thread_safeness();
     zmalloc_set_oom_handler(redisOutOfMemoryHandler);
     srand(time(NULL)^getpid());
     gettimeofday(&tv,NULL);

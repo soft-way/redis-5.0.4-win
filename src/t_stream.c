@@ -27,6 +27,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifdef _WIN32
+#include "Win32_Interop/Win32_RedisLog.h"
+#endif
+
 #include "server.h"
 #include "endianconv.h"
 #include "stream.h"

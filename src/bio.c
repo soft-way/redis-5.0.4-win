@@ -58,6 +58,7 @@
  */
 
 #ifdef _WIN32
+#include "Win32_Interop/Win32_RedisLog.h"
 #include "Win32_Interop/Win32_Portability.h"
 #include "Win32_Interop/win32fixes.h"
 #include "Win32_Interop/Win32_PThread.h"

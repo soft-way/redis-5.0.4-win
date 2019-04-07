@@ -33,7 +33,9 @@
 #include "async.h"
 
 #include <ctype.h>
-#ifndef _WIN32
+#ifdef _WIN32
+#include "Win32_Interop/Win32_RedisLog.h"
+#else
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <sys/wait.h>

@@ -34,7 +34,9 @@
 
 #include <sys/types.h>
 
-#ifndef _WIN32
+#ifdef _WIN32
+#include "Win32_Interop/Win32_RedisLog.h"
+#else
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>

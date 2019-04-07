@@ -29,6 +29,7 @@
  */
 
 #ifdef _WIN32
+#include "Win32_Interop/Win32_RedisLog.h"
 #include "Win32_Interop/win32_types.h"
 #include "Win32_Interop/Win32_EventLog.h"
 #include <direct.h>

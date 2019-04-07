@@ -29,6 +29,7 @@
 
 
 #ifdef _WIN32
+#include "Win32_Interop/Win32_RedisLog.h"
 #include "Win32_Interop/Win32_Portability.h"
 #include "Win32_Interop/win32_types.h"
 #include "Win32_Interop/win32fixes.h"
@@ -1236,7 +1237,11 @@ werr: /* Write error. */
 /* Save the DB on disk. Return C_ERR on error, C_OK on success. */
 int rdbSave(char *filename, rdbSaveInfo *rsi) {
     char tmpfile[256];
+#ifdef _WIN32
     char cwd[MAX_PATH]; /* Current working dir path for error messages. */
+#else
+    char cwd[MAXPATHLEN]; /* Current working dir path for error messages. */
+#endif
     FILE *fp;
     rio rdb;
     int error = 0;
@@ -1244,7 +1249,11 @@ int rdbSave(char *filename, rdbSaveInfo *rsi) {
     snprintf(tmpfile,256,"temp-%d.rdb", (int) getpid());
     fp = fopen(tmpfile,"w");
     if (!fp) {
+#ifdef _WIN32
         char *cwdp = getcwd(cwd, MAX_PATH);
+#else
+        char *cwdp = getcwd(cwd, MAXPATHLEN);
+#endif
         serverLog(LL_WARNING,
             "Failed opening the RDB file %s (in server root dir %s) "
             "for saving: %s",
@@ -1272,7 +1281,11 @@ int rdbSave(char *filename, rdbSaveInfo *rsi) {
     /* Use RENAME to make sure the DB file is changed atomically only
      * if the generate DB file is ok. */
     if (rename(tmpfile,filename) == -1) {
+#ifdef _WIN32
         char *cwdp = getcwd(cwd,MAX_PATH);
+#else
+        char *cwdp = getcwd(cwd, MAXPATHLEN);
+#endif
         serverLog(LL_WARNING,
             "Error moving temp DB file %s on the final "
             "destination %s (in server root dir %s): %s",

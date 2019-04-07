@@ -57,7 +57,9 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-POSIX_ONLY(#include <pthread.h>)
+#ifndef _WIN32
+#include <pthread.h>
+#endif
 
 #ifndef __ATOMIC_VAR_H
 #define __ATOMIC_VAR_H

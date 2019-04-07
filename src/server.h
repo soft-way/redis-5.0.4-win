@@ -2158,7 +2158,9 @@ void _serverAssert(const char *estr, const char *file, int line);
 void _serverPanic(const char *file, int line, const char *msg, ...);
 void bugReportStart(void);
 void serverLogObjectDebugInfo(const robj *o);
-POSIX_ONLY(void sigsegvHandler(int sig, siginfo_t *info, void *secret);)
+#ifndef _WIN32
+void sigsegvHandler(int sig, siginfo_t *info, void *secret);
+#endif
 sds genRedisInfoString(char *section);
 void enableWatchdog(int period);
 void disableWatchdog(void);

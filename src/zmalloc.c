@@ -49,7 +49,9 @@ void zlibc_free(void *ptr) {
 }
 
 #include <string.h>
-POSIX_ONLY(#include <pthread.h>)
+#ifndef _WIN32
+#include <pthread.h>
+#endif
 #include "config.h"
 #include "zmalloc.h"
 #include "atomicvar.h"
@@ -92,6 +94,7 @@ POSIX_ONLY(#include <pthread.h>)
 } while(0)
 
 static size_t used_memory = 0;
+static int zmalloc_thread_safe = 0;
 #ifdef _WIN32
 pthread_mutex_t used_memory_mutex;
 #else
@@ -231,6 +234,24 @@ size_t zmalloc_used_memory(void) {
     atomicGet(used_memory,um);
     return um;
 }
+
+#ifdef _WIN32
+void zmalloc_free_used_memory_mutex(void) {
+    /* Windows fix: Callabe mutex destroy.  */
+    if (zmalloc_thread_safe)
+        pthread_mutex_destroy(&used_memory_mutex);
+}
+void zmalloc_enable_thread_safeness(void) {
+    if (!zmalloc_thread_safe)
+        pthread_mutex_init(&used_memory_mutex, 0);
+
+    zmalloc_thread_safe = 1;
+}
+#else
+void zmalloc_enable_thread_safeness(void) {
+    zmalloc_thread_safe = 1;
+}
+#endif
 
 void zmalloc_set_oom_handler(void (*oom_handler)(size_t)) {
     zmalloc_oom_handler = oom_handler;

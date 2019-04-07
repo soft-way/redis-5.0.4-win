@@ -187,13 +187,13 @@ static void refreshLine(struct linenoiseState *l);
 
 #ifdef _WIN32
 #ifndef STDIN_FILENO
-#define STDIN_FILENO (_fileno(stdin))
-#endif
+    #define STDIN_FILENO (_fileno(stdin))
 #endif
 
 HANDLE hOut;
 HANDLE hIn;
 DWORD consolemode;
+#endif
 
 /* Debugging macro. */
 #if 0

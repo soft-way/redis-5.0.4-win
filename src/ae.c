@@ -36,6 +36,7 @@
 #include <sys/timeb.h>
 #include "../../src/Win32_Interop/Win32_FDAPI.h"
 #include "../../src/Win32_Interop/Win32_Service.h"
+#include "../../src/Win32_Interop/Win32_RedisLog.h"
 #else
 #include <sys/time.h>
 #include <unistd.h>
